@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const COURSE_API_URL = 'http://localhost:3000';
+const COURSE_API_URL = 'http://localhost:3001';
 
 class JobService {
 
@@ -24,12 +24,19 @@ class JobService {
     }
 
     createJob(job) {
-        //console.log('executed service')
         return axios.post(`${COURSE_API_URL}/jobs`, job);
     }
-    retrieveJobByIndex(limit,skip) {
-        alert(`${COURSE_API_URL}/jobs?filter[limit]=${limit}&filter[skip]=${skip}`);
+    retrieveJobByIndex(limit, skip, field, order) {
+        if (field) {
+            return axios.get(`${COURSE_API_URL}/jobs?filter[limit]=${limit}&filter[skip]=${skip}&filter[order][0]=${field}%20${order}`);
+        }
         return axios.get(`${COURSE_API_URL}/jobs?filter[limit]=${limit}&filter[skip]=${skip}`);
+    }
+    retrieveSort(field, order, limit) {
+        return axios.get(`${COURSE_API_URL}/jobs?filter[order][0]=${field}%20${order}&filter[limit]=${limit}`);
+    }
+    retrieveFilter(field, val) {
+        return axios.get(`${COURSE_API_URL}/jobs? filter[where][${field}][like]=%25${val}`);
     }
 }
 

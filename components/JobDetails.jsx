@@ -1,109 +1,147 @@
 import React from 'react';
-import { Table, Button, Alert } from 'react-bootstrap/lib';
+import { Button } from 'react-bootstrap/lib';
 import JobService from '../service/JobService';
 import { Link } from 'react-router-dom';
 import BootstrapTable from 'react-bootstrap-table-next';
 import paginationFactory from 'react-bootstrap-table2-paginator';
+let skip = 0;
+const columns = [
+  {
+    dataField: '_id',
+    isDummyField: true,
+    text: '#',
+    sort: true,
+    formatter: (cellContent, row, i) => {
+      return (
+        row._id
+      );
+    }
+  }, {
+    dataField: 'title',
+    text: 'Title',
+    sort: true,
+    // filter: textFilter()
+  }, {
+    dataField: 'skills',
+    text: 'Skills',
+    sort: true,
+    // filter: textFilter()
+  }, {
+    dataField: 'Company',
+    text: 'Company',
+    sort: true,
+    // filter: textFilter()
+  },
+  {
+    dataField: 'edit-delete',
+    isDummyField: true,
+    text: 'Edit/Delete',
+    formatter: (cellContent, row) => {
+      return (
+        <span>
+          <Link to={"edit/" + row._id} className="btn btn-primary">Edit</Link>
+          &nbsp;<Button variant="danger" size="sm" onClick={() => this.deleteJob(row._id)}>Delete</Button></span>
+      );
+
+    }
+  }
+];
+const RemoteSort = ({ data, page, sizePerPage, onTableChange, totalSize }) => (<div>
+  <BootstrapTable
+    remote
+    keyField="_id"
+    data={data}
+    columns={columns}
+    // filter={filterFactory()}
+    pagination={paginationFactory({ page, sizePerPage, totalSize })}
+    onTableChange={onTableChange} />
+</div>);
+
 class JobDetails extends React.Component {
 
-    constructor(props) {
-        super(props);
-        this.state = {
-            error: null,
-            jobs: [],
-            response: {},
+  constructor(props) {
+    super(props);
+    this.state = {
+      page: 1,
+      data: [],
+      sizePerPage: 5,
+      total: 0
+    };
+    this.refreshJob = this.refreshJob.bind(this);
+    this.countJob = this.countJob.bind(this);
+  }
+  componentDidMount() {
+    this.refreshJob();
+    this.countJob();
+  }
+  countJob() {
+    JobService.retrieveCount().then(resp => {
+      this.setState({
+        total: resp.data.count
+      })
+    }).catch(err => {
+      console.log(err)
+    })
+  }
+  refreshJob() {
+    JobService.retrieveJobByIndex(this.state.sizePerPage, skip)
+      .then(
+        response => {
+          this.setState({ data: response.data })
         }
-        this.refreshJob = this.refreshJob.bind(this);
-        this.deleteJob = this.deleteJob.bind(this);
-    }
-    componentWillMount() {
-        this.refreshJob();
-    }
-    deleteJob(jobId) {
-        JobService.deleteJob(jobId)
-            .then(response => {
-                if (response.status === 204) response.message = 'Successfully deleted';
-                this.refreshJob();
-            }).catch(err => {
+      ).catch(err => {
+        this.setState({ error });
+      });
+  }
 
-            });
+  handleTableChange = (type, { sortField, sortOrder, data, filters, page, sizePerPage }) => {
+    const currentIndex = (page - 1) * sizePerPage;
+    if (page > 1) skip = currentIndex
+    else skip = 0;
+    switch (type) {
+      case 'filter':
+        var searchField = Object.keys(filters);
+        const { filterVal, filterType } = filters[searchField];
+        JobService.retrieveJobBySearch(searchField, filterVal).then(resp => {
+          console.log(resp.data)
+        }).catch(err => {
+          console.log(err);
+        })
+        break;
+      case 'sort':
+        JobService.retrieveSort(sortField, sortOrder, sizePerPage).then(result => {
+          this.setState(() => ({
+            data: result.data
+          }));
+        }).catch(err => {
+          console.log(err);
+        })
+        break;
+      case 'pagination':
+        JobService.retrieveJobByIndex(sizePerPage, skip, sortField, sortOrder).then(resp => {
+          this.setState(() => ({
+            page,
+            data: resp.data,
+            sizePerPage
+          }));
+        })
+        break;
+      default:
+        break;
     }
-
-    refreshJob() {
-        JobService.retrieveAllJob()
-            .then(
-                response => {
-                    this.setState({ jobs: response.data })
-                }
-            ).catch(err => {
-                this.setState({ error });
-            });
-    }
-    render() {
-        const customTotal = (from, to, size) => (
-            <span className="react-bootstrap-table-pagination-total">
-              Showing { from } to { to } of { size } Results
-            </span>
-          );
-        const options = {
-            pageStartIndex: 1,
-            firstPageText: 'First',
-            prePageText: 'Back',
-            nextPageText: 'Next',
-            lastPageText: 'Last',
-            nextPageTitle: 'First page',
-            prePageTitle: 'Pre page',
-            firstPageTitle: 'Next page',
-            lastPageTitle: 'Last page',
-            showTotal: true,
-            paginationTotalRenderer: customTotal,
-            sizePerPageList: [{
-              text: '5', value: 5
-            }]
-          };
-        const columns = [
-            {
-                dataField: '_id',
-                isDummyField: true,
-                text: '#',
-                sort: true,
-                formatter: (cellContent, row) => {
-                    return (
-                       row._id
-                    );
-    
-                }
-            },{
-            dataField: 'title',
-            text: 'Title',
-            sort: true
-        }, {
-            dataField: 'skills',
-            text: 'Skills',
-            sort: true
-        }, {
-            dataField: 'Company',
-            text: 'Company',
-            sort: true
-        },
-        {
-            dataField: 'edit-delete',
-            isDummyField: true,
-            text: 'Edit/Delete',
-            formatter: (cellContent, row) => {
-                return (
-                    <span>
-                        <Link to={"edit/" + row._id} className="btn btn-primary">Edit</Link>
-                        &nbsp;<Button variant="danger" size="sm" onClick={() => this.deleteJob(row._id)}>Delete</Button></span>
-                );
-
-            }
-        }
-        ];
-        return (
-            <BootstrapTable keyField='_id' data={this.state.jobs} columns={columns} pagination={paginationFactory(options)} />  
-        );
-    }
+  }
+  render() {
+    const { data, sizePerPage, page, total } = this.state;
+    return (
+      <RemoteSort
+        data={data}
+        page={page}
+        sizePerPage={sizePerPage}
+        totalSize={total}
+        onTableChange={this.handleTableChange}
+      />
+    );
+  }
 }
 
 export default JobDetails;
